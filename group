@@ -1,0 +1,119 @@
+#-*- codeing = utf-8 -*-
+#@Time : 2021/8/10 9:53
+#@Author : Rick
+#@File : group.py
+#@Software:PyCharm
+
+import pandas as pd
+import xlrd
+import win32com.client
+#from st2common.runners.base_action import Action
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.utils import COMMASPACE, formatdate
+from email import encoders
+import os
+from email.mime.base import MIMEBase
+from email.mime.application import MIMEApplication
+from email.header import Header
+
+mail_host = '10.67.9.240'
+# 用户名(一般用户名也就是邮箱名)
+mail_user = 'rick.pang@homecredit.cn'
+
+data = pd.read_excel(r"E:\Soft\Python\VM\monitor.xlsx")
+data2 = pd.read_excel(r"E:\Soft\Python\VM\list.xlsx",
+                      converters={'dep2': str, 'Rec': str, 'Cc': str})
+area_list = list(set(data['Name']))
+# 遍历
+for j in area_list:
+    df = data[data['Name'] == j]
+    writer = pd.ExcelWriter(f'{str(j)}.xlsx', engine='xlsxwriter')
+    df.to_excel(writer, sheet_name=j, index=False)
+    writer.save()  # 一定要加上这句代码，“拆好的表”才会显示出来
+# for j in area_list:
+#     def send_mail():
+#         outlook = win32com.client.Dispatch('Outlook.Application')  # 固定写法
+#         mail_item = outlook.CreateItem(0)  # 0: olMailItem
+#         mail_item.to = list(data2['Rec'][data2['Name'] == j])[0]  # 收件人
+#                 # mail.Recipients.Add(addressee)
+#         mail_item.Subject = 'Mail Test5' + 'you are the best'
+#         mail_item.BodyFormat = 2  # 2: Html format
+#         mail_item.HTMLBody = '''
+#             <H2>Hello, This is a test mail.</H2>
+#             Hello Guys.
+#             Do you want to come with us?
+#             '''
+#
+#         mail_item.Attachments.Add(r {str( j )}.xlsx, 1, 1, f'{str( j )}.xlsx')
+#
+#         mail_item.Send()
+#
+#
+#     if __name__ == '__main__':
+#         send_mail()
+#
+#
+#         print('success')
+
+for j in area_list:
+    receivers = list(data2['Rec'][data2['Name'] == j])[0]
+
+    message = MIMEMultipart()
+    message['From'] = mail_user
+    message['Subject'] = 'Reclaim resource for virtual server'
+#         text_msg = MIMEText(text)
+#         message.attach(text_msg)
+# receivers = 'rick.pang@homecredit.cn'
+    part1 = MIMEText(open('test.html', 'r').read(), 'html', 'utf-8')
+    # 将内容附加到邮件主体中
+    message.attach(part1)
+    attachments = j + ".xlsx"
+    if attachments:
+        for file in attachments.split(','):
+            part = MIMEBase('application', "octet-stream")
+            part.set_payload(open(file, "rb").read())
+            encoders.encode_base64(part)
+            part.add_header('Content-Disposition', 'attachment; filename="{}"'.format(os.path.basename(file)))
+            message.attach(part)
+
+
+
+    # def add_excel(xlsx_file, xlsx_name):  # 添加excel附件
+    #     # 将xlsx文件作为内容发送到对方的邮箱读取excel，rb形式读取，对于MIMEText()来说默认的编码形式是base64 对于二进制文件来说没有设置base64，会出现乱码
+    #         msg_xlsx = MIMEText(open(xlsx_file, 'rb').read(), 'base64', 'utf-8')
+    #     # 设置文件在附件当中的名字
+    #         message.add_header('Content-Disposition', 'attachment', filename=xlsx_name)
+    #         return msg_xlsx
+    #
+    #
+    #     msg_xlsx = add_excel(path + xlsx_name, xlsx_name)
+    #     message.attach(msg_xlsx)
+    #     return message
+
+    # send_file = open(r"j.xlsx", "rb").read()
+    # att=MIMEText(send_file,"base64",'utf-8')
+    # att['Content-Type'] = 'application/octet-stream'
+    # att.add_header('Content-Disposition', 'attachment', filename='j.xlsx')
+    #
+    # #att['Content-Disposition'] = 'attachment;filename="j.xlsx"'
+    #
+    # message.attach(att)
+
+
+    # pdfFile = 'j.xlsx'
+    # pdfApart = MIMEApplication(open(pdfFile, 'rb').read())
+    # pdfApart.add_header('Content-Disposition', 'attachment', filename=pdfFile)
+
+
+    # 登录并发送
+    try:
+        smtpObj = smtplib.SMTP()
+        smtpObj.connect(mail_host, 25)
+        smtpObj.sendmail(
+            mail_user, receivers, message.as_string())
+        print('success')
+        smtpObj.quit()
+    except smtplib.SMTPException as e:
+        print('error', e)
